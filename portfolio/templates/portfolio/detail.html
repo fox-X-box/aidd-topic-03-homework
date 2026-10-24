@@ -1,0 +1,21 @@
+{% extends "dashboard/base.html" %}
+{% block title %}<title>{{ portfolio.name }}</title>{% endblock %}
+{% block content %}
+<a href="{% url 'portfolio:index' %}">Мои портфели</a>
+<h1>{{ portfolio.name }} ({{ portfolio.currency }})</h1>
+<p>Начальный капитал: {{ portfolio.initial_cash|floatformat:2 }}. Свободные средства: {{ portfolio.cash|floatformat:2 }}.</p>
+{% if summary.has_missing_prices %}<p>Стоимость и общая прибыль неизвестны: для части позиций отсутствуют корректные котировки.</p>{% else %}
+<p>Стоимость акций: {{ summary.current_value|floatformat:2 }}. Капитал: {{ summary.equity|floatformat:2 }}. Общая прибыль/убыток: {{ summary.total_pnl|floatformat:2 }}.</p>
+<p>Нереализованная прибыль/убыток: {{ summary.unrealized_pnl|floatformat:2 }}.</p>{% endif %}
+<p>Реализованная прибыль/убыток: {{ summary.realized_pnl|floatformat:2 }}.</p>
+<table class="table"><thead><tr><th>Тикер</th><th>Количество</th><th>Средняя цена</th><th>Текущая цена</th><th>Стоимость</th><th>Прибыль/убыток</th></tr></thead><tbody>
+{% for row in summary.holdings %}<tr><td>{{ row.position.share.ticker }}</td><td>{{ row.position.quantity|floatformat:9 }}</td><td>{{ row.position.average_price|floatformat:9 }}</td><td>{{ row.price|default_if_none:"Нет котировки" }}</td><td>{{ row.value|default_if_none:"Неизвестно" }}</td><td>{{ row.pnl|default_if_none:"Неизвестно" }}</td></tr>{% empty %}<tr><td colspan="6">Открытых позиций нет.</td></tr>{% endfor %}
+</tbody></table>
+<h2>Виртуальная сделка</h2><p>Цена исполнения — последняя сохранённая котировка. Доступны только акции в валюте портфеля; отсутствие котировки блокирует сделку.</p>
+<form method="post" action="{% url 'portfolio:trade' portfolio.pk %}">{% csrf_token %}{{ form.as_p }}<button class="btn btn-primary">Выполнить</button></form>
+<h2>История операций</h2>
+<table class="table"><thead><tr><th>Время</th><th>Операция</th><th>Акция</th><th>Количество</th><th>Цена</th><th>Реализованный результат</th></tr></thead><tbody>
+{% for trade in trades %}<tr><td>{{ trade.created_at }}</td><td>{{ trade.get_side_display }}</td><td>{{ trade.share.ticker }}</td><td>{{ trade.quantity }}</td><td>{{ trade.price }}</td><td>{{ trade.realized_pnl }}</td></tr>{% empty %}<tr><td colspan="6">Операций пока нет.</td></tr>{% endfor %}
+</tbody></table>
+<nav aria-label="Страницы истории">{% if trades.has_previous %}<a href="?page={{ trades.previous_page_number }}">Назад</a>{% endif %} Страница {{ trades.number }} из {{ trades.paginator.num_pages }} {% if trades.has_next %}<a href="?page={{ trades.next_page_number }}">Далее</a>{% endif %}</nav>
+{% endblock %}

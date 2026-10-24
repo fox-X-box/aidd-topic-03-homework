@@ -24,6 +24,21 @@ class Share(models.Model):
         verbose_name_plural = "Акции"
 
 
+    def validate_currency_change(self, currency):
+        if self.pk:
+            old = type(self).objects.filter(pk=self.pk).values_list("currency", flat=True).first()
+            if old and old.lower() != currency.lower():
+                if self.price_history.exists() or self.position_set.exists() or self.trade_set.exists():
+                    raise ValidationError("Нельзя менять валюту акции с историей цен или операциями портфеля.")
+
+    def clean(self):
+        super().clean()
+        self.validate_currency_change(self.currency)
+
+    def save(self, *args, **kwargs):
+        self.validate_currency_change(self.currency)
+        return super().save(*args, **kwargs)
+
     def __str__(self):
         return f"{self.ticker} — {self.name}"
 

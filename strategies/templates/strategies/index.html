@@ -1,0 +1,28 @@
+{% extends "dashboard/base.html" %}
+{% block title %}<title>Симулятор стратегий</title>{% endblock %}
+{% block content %}
+<h1>Симулятор инвестиционных стратегий</h1>
+<a class="btn btn-primary" href="{% url 'strategies:create' %}">Создать стратегию</a>
+<p>Однократные виртуальные правила обрабатываются при получении новых котировок.
+Результат продажи — реализованная прибыль относительно средней цены позиции.
+Для покупки показано гипотетическое изменение стоимости исходного объема при его удержании.
+Это не фактическая прибыль после последующих продаж; она учитывается в портфеле.
+Показатели разных валют не суммируются.</p>
+{% for strategy in strategies %}
+<article class="border p-3 my-3">
+<h2>{{ strategy.name }}</h2>
+<p>Портфель: {{ strategy.portfolio.name }} · {{ strategy.share.ticker }} · {{ strategy.get_side_display }} {{ strategy.price_threshold }} {{ strategy.share.currency }} · количество {{ strategy.quantity }}</p>
+<p>Статус: {{ strategy.get_status_display }}</p>
+{% if strategy.execution %}
+<p>Журнал: {{ strategy.execution.observed_at }} · цена {{ strategy.execution.price }} {{ strategy.share.currency }}</p>
+{% if strategy.execution.error %}<p role="alert">{{ strategy.execution.error }}</p>{% else %}
+<p>Сделка №{{ strategy.execution.trade_id }}.
+{% if strategy.side == "buy" %}Гипотетическое изменение стоимости исходной покупки{% else %}Реализованная прибыль продажи{% endif %}:
+{{ strategy.execution.result|default_if_none:"Нет текущей цены" }} {{ strategy.share.currency }}
+{% if strategy.execution.result_percent != None %}({{ strategy.execution.result_percent|floatformat:2 }}%){% endif %}.</p>
+{% endif %}
+{% endif %}
+{% if strategy.enabled %}<form method="post" action="{% url 'strategies:cancel' strategy.pk %}">{% csrf_token %}<button class="btn btn-secondary">Отменить</button></form>{% endif %}
+</article>
+{% empty %}<p>Стратегий еще нет.</p>{% endfor %}
+{% endblock %}

@@ -1,0 +1,9 @@
+{% extends "dashboard/base.html" %}
+{% block title %}<title>Виртуальные портфели</title>{% endblock %}
+{% block content %}
+<h1>Мои виртуальные портфели</h1>
+<p>Учебная симуляция. Реальные сделки не совершаются. Конвертация валют не выполняется.</p>
+<ul>{% for portfolio in portfolios %}<li><a href="{% url 'portfolio:detail' portfolio.pk %}">{{ portfolio.name }}</a> — {{ portfolio.cash|floatformat:2 }} {{ portfolio.currency }}</li>{% empty %}<li>Портфелей пока нет.</li>{% endfor %}</ul>
+<h2>Новый портфель</h2>
+<form method="post">{% csrf_token %}{{ form.as_p }}<button class="btn btn-primary">Создать</button></form>
+{% endblock %}

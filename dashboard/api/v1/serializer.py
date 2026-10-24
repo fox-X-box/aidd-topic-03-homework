@@ -5,6 +5,14 @@ from dashboard.models import Share
 
 
 class ShareSerializer(serializers.ModelSerializer):
+    def validate_currency(self, value):
+        if self.instance:
+            try:
+                self.instance.validate_currency_change(value)
+            except ValidationError as exc:
+                raise serializers.ValidationError(exc.messages)
+        return value.lower()
+
     class Meta:
         model = Share
         fields = (

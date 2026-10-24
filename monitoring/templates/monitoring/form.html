@@ -1,0 +1,7 @@
+{% extends "dashboard/base.html" %}
+{% block title %}<title>{{ title }}</title>{% endblock %}
+{% block content %}
+<h1>{{ title }}</h1>
+<form method="post">{% csrf_token %}{{ form.as_p }}<button class="btn btn-primary" type="submit">Сохранить</button></form>
+<p><a href="{% url 'monitoring:index' %}">К спискам наблюдения</a></p>
+{% endblock %}

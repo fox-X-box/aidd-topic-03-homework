@@ -1,32 +1,14 @@
-{% extends "dashboard/base.html" %}
-
-{% block title %}
-<title>Детальная информация</title>
-{% endblock %}
-
+{% extends 'dashboard/base.html' %}
+{% block title %}<title>{{ share.ticker }} — история цен</title>{% endblock %}
 {% block content %}
-    <div class="row">
-    <div class="col3"></div>
-    <div class="col3">
-        Инструмент: {{ share.name }} <br>
-        Текущая цена: {{ share.last_price }} {{ share.currency }} <br>
-        Время последнего обновления: {{ share.updated_at }}
-    </div>
-    <div class="col3"></div>
-    </div>
-
-
-      <div class="row mt-3">
-    <div class="col3"></div>
-    <div class="col3">
-    <h5>Исторические данные: </h5>
- {% autoescape off %}
-  {{ plot_div }}
-  {% endautoescape %}
-    </div>
-    <div class="col3"></div>
-    </div>
-
-
-
+<h1>{{ share.name }} ({{ share.ticker }})</h1>
+<p>Текущая цена: {{ share.last_price|default_if_none:'нет котировки' }} {{ share.currency }}. Последнее обновление: {{ share.updated_at }}.</p>
+<h2>История рыночных цен</h2>
+<form method="get">{{ history_form.as_p }}<button class="btn btn-primary">Показать период (UTC)</button></form>
+{% if market_error %}<p role="alert">{{ market_error }}</p>{% endif %}
+{% if absolute_change is not None %}<p>Абсолютное изменение: {{ absolute_change }} {{ share.currency }}. Изменение в процентах: {{ percent_change|floatformat:2 }}%.</p>{% endif %}
+{{ plot_div|safe }}
+<table class="table"><thead><tr><th>Время (UTC)</th><th>Цена {{ share.currency }}</th></tr></thead><tbody>
+{% for point in history %}<tr><td>{{ point.observed_at|date:'Y-m-d H:i:s' }}</td><td>{{ point.price }}</td></tr>{% empty %}<tr><td colspan="2">В этом периоде нет сохраненных котировок.</td></tr>{% endfor %}
+</tbody></table>
 {% endblock %}

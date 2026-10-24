@@ -1,0 +1,19 @@
+{% extends "dashboard/base.html" %}
+{% block title %}<title>Мониторинг акций</title>{% endblock %}
+{% block content %}
+<h1>Мои списки наблюдения</h1>
+<p><a href="{% url 'monitoring:create_list' %}" class="btn btn-primary">Создать список</a>
+<a href="{% url 'monitoring:inbox' %}" class="btn btn-secondary">Уведомления</a></p>
+<p>Уведомление появляется здесь при следующем обновлении цены, если цена достигла цели. Каждое правило срабатывает один раз. Для повторного наблюдения создайте новое правило. Цели заданы в валюте акции.</p>
+{% for watchlist in watchlists %}
+<section class="mb-4">
+<h2>{{ watchlist.name }}</h2>
+<p><a href="{% url 'monitoring:create_rule' watchlist.pk %}">Добавить акцию и цель</a></p>
+<form method="post" action="{% url 'monitoring:delete_list' watchlist.pk %}">{% csrf_token %}<button class="btn btn-outline-danger" type="submit">Удалить список</button></form>
+<table class="table"><thead><tr><th>Акция</th><th>Условие</th><th>Цель</th><th>Состояние</th><th>Действие</th></tr></thead><tbody>
+{% for rule in watchlist.rules.all %}
+<tr><td>{{ rule.share.ticker }} — {{ rule.share.name }}</td><td>{{ rule.get_direction_display }}</td><td>{{ rule.target_price }} {{ rule.share.currency }}</td><td>{% if rule.notification %}Уведомление отправлено{% else %}Ожидает обновления цены{% endif %}</td><td><form method="post" action="{% url 'monitoring:delete_rule' rule.pk %}">{% csrf_token %}<button class="btn btn-sm btn-outline-danger" type="submit">Удалить правило</button></form></td></tr>
+{% empty %}<tr><td colspan="5">Акции пока не добавлены.</td></tr>{% endfor %}
+</tbody></table></section>
+{% empty %}<p>У вас пока нет списков наблюдения.</p>{% endfor %}
+{% endblock %}

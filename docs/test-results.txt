@@ -1,0 +1,10 @@
+Creating test database for alias 'default'...
+........................Could not refresh share 34
+..........................................................
+----------------------------------------------------------------------
+Ran 82 tests in 14.077s
+
+OK
+Destroying test database for alias 'default'...
+Found 82 test(s).
+System check identified no issues (0 silenced).

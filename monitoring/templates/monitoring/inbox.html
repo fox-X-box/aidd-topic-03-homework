@@ -1,0 +1,16 @@
+{% extends "dashboard/base.html" %}
+{% block title %}<title>Мои уведомления</title>{% endblock %}
+{% block content %}
+<h1>Уведомления о ценах</h1>
+<p><a href="{% url 'monitoring:index' %}">К спискам наблюдения</a></p>
+{% for notification in page_obj %}
+<article class="border rounded p-3 mb-3">
+<h2>{{ notification.ticker }}{% if not notification.is_read %} — новое{% endif %}</h2>
+<p>{{ notification.get_direction_display }} {{ notification.target_price }} {{ notification.currency }}. Зафиксирована цена {{ notification.observed_price }} {{ notification.currency }} в {{ notification.observed_at }}.</p>
+{% if not notification.is_read %}<form method="post" action="{% url 'monitoring:mark_read' notification.pk %}">{% csrf_token %}<button class="btn btn-secondary" type="submit">Прочитано</button></form>{% endif %}
+</article>
+{% empty %}<p>Уведомлений пока нет.</p>{% endfor %}
+{% if page_obj.has_previous %}<a href="?page={{ page_obj.previous_page_number }}">Предыдущая</a>{% endif %}
+<span>Страница {{ page_obj.number }} из {{ page_obj.paginator.num_pages }}</span>
+{% if page_obj.has_next %}<a href="?page={{ page_obj.next_page_number }}">Следующая</a>{% endif %}
+{% endblock %}
