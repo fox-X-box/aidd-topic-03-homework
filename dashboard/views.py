@@ -1,10 +1,11 @@
-from django.shortcuts import render, redirect
+from django.shortcuts import render, redirect, get_object_or_404
 from django.urls import reverse_lazy
 from django.views.generic import CreateView, DeleteView, ListView, View, UpdateView
 
 from .forms import ShareModelForm
 from .models import Share
 from .services.graph import get_graph
+from .services.market_data import MarketDataError
 from django.contrib.auth.mixins import UserPassesTestMixin
 
 
@@ -29,12 +30,16 @@ class ShareListView(ListView):
 class ShareDetailView(View):
     @staticmethod
     def get(request, pk):
-        share = Share.objects.get(id=pk)
+        share = get_object_or_404(Share, pk=pk)
+        try:
+            graph = get_graph(share)
+        except MarketDataError:
+            graph = ""
 
         return render(
             request,
             "dashboard/detail.html",
-            {"plot_div": get_graph(share), "share": share},
+            {"plot_div": graph, "share": share},
         )
 
 

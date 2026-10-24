@@ -1,4 +1,5 @@
 from django.urls import reverse
+from django.contrib.auth import get_user_model
 from rest_framework import status
 from rest_framework.test import APITestCase
 
@@ -7,6 +8,7 @@ from dashboard.models import Share
 
 class DashboardTests(APITestCase):
     def setUp(self) -> None:
+        self.client.force_authenticate(get_user_model().objects.create_user("api@example.com"))
         self.apple_share = Share.objects.create(
             figi="BBG000B9XRY4",
             isin="US0378331005",
@@ -67,6 +69,7 @@ class DashboardTests(APITestCase):
                 "name": f"{self.apple_share.name}_test",
                 "ticker": self.apple_share.ticker,
                 "currency": self.apple_share.currency,
+                "uid": self.apple_share.uid,
             },
             format="json",
         )

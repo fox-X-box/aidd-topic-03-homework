@@ -1,69 +1,72 @@
 from django import forms
-from django.contrib.auth import authenticate
+from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError
+from django.db.models import Q
 
 from user.models import User
 
 
-class RegistrationForm(forms.Form):
-    """Форма регистрации пользователей"""
-
+class EmailForm(forms.Form):
     email = forms.EmailField(
-        required=True,
+        max_length=User._meta.get_field("username").max_length,
         widget=forms.EmailInput(
             attrs={"class": "form-control my-3 p-4", "placeholder": "Email"}
         ),
     )
+
+    def clean_email(self):
+        return self.cleaned_data["email"].lower()
+
+
+class RegistrationForm(EmailForm):
+    """Регистрация с нормализацией e-mail и стандартной проверкой пароля."""
+
     password1 = forms.CharField(
-        required=True,
+        strip=False,
         widget=forms.PasswordInput(
             attrs={"class": "form-control my-3 p-4", "placeholder": "Пароль"}
         ),
     )
     password2 = forms.CharField(
-        required=True,
+        strip=False,
         widget=forms.PasswordInput(
             attrs={"class": "form-control my-3 p-4", "placeholder": "Повторите пароль"}
         ),
     )
 
+    def clean_email(self):
+        email = super().clean_email()
+        if User.objects.filter(Q(email__iexact=email) | Q(username__iexact=email)).exists():
+            raise ValidationError("Данный e-mail уже зарегистрирован.")
+        return email
+
     def clean(self):
-        super().clean()
-        email = self.cleaned_data["email"]
-        password1 = self.cleaned_data["password1"]
-        password2 = self.cleaned_data["password2"]
+        cleaned_data = super().clean()
+        password1 = cleaned_data.get("password1")
+        password2 = cleaned_data.get("password2")
         if password1 and password2 and password1 != password2:
-            errors = ["Введенные пароли не совпадают"]
-            raise ValidationError(errors)
-
-        user = User.objects.filter(email=email)
-
-        if user:
-            errors = [
-                "Данный e-mail уже зарегистрирован! Введите другой e-mail или"
-                " воспользуйтесь формой авторизации."
-            ]
-            raise ValidationError(errors)
+            self.add_error("password2", "Введенные пароли не совпадают.")
+        if password1:
+            email = cleaned_data.get("email", "")
+            candidate = User(username=email, email=email)
+            try:
+                validate_password(password1, candidate)
+            except ValidationError as error:
+                self.add_error("password1", error)
+        return cleaned_data
 
     def save(self):
         email = self.cleaned_data["email"]
-        password = self.cleaned_data["password1"]
-        User.objects.create_user(email, email, password)
-        user = authenticate(username=email, password=password)
-        return user
+        return User.objects.create_user(
+            username=email, email=email, password=self.cleaned_data["password1"]
+        )
 
 
-class AuthForm(forms.Form):
-    """Форма авторизации пользователей"""
+class AuthForm(EmailForm):
+    """Форма входа; неполный POST обрабатывается обычными ошибками полей."""
 
-    email = forms.EmailField(
-        required=True,
-        widget=forms.EmailInput(
-            attrs={"class": "form-control my-3 p-4", "placeholder": "Email"}
-        ),
-    )
     password = forms.CharField(
-        required=True,
+        strip=False,
         widget=forms.PasswordInput(
             attrs={"class": "form-control my-3 p-4", "placeholder": "Пароль"}
         ),

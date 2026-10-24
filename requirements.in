@@ -1,0 +1,10 @@
+# Supported Django LTS; regenerate requirements.txt using uv pip compile requirements.in.
+Django>=5.2,<5.3
+djangorestframework>=3.16,<3.17
+django-filter>=25.1,<26
+django-crispy-forms>=2.4,<3
+crispy-bootstrap3>=2024.1
+celery>=5.5,<6
+redis>=6,<7
+psycopg[binary]>=3.2,<4
+plotly>=6,<7

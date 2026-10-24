@@ -28,3 +28,9 @@ celeryd.pid
 *.log
 .pytest_cache/
 app.logs
+
+# Development service data, generated assets and evidence artifacts
+.dev/
+staticfiles/
+
+.runtime/

@@ -1,19 +1,26 @@
 services:
-
   db:
-    image: postgres
-    restart: always
+    image: postgres:15@sha256:baa22e6286bf832cb147b8bb5aa9d8bc999846d69c21d11bf63f58fbeed1fa48
     environment:
-      POSTGRES_DB: "investing"
-      POSTGRES_USER: "postgres"
-      POSTGRES_PASSWORD: "postgres"
-
+      POSTGRES_DB: investing
+      POSTGRES_USER: postgres
+      # Local development only; bind to loopback, never deploy with this password.
+      POSTGRES_PASSWORD: postgres
     ports:
-      - "5432:5432"
+      - "127.0.0.1:5432:5432"
     volumes:
-        - ./:/app
-
+      - ./.dev/postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d investing"]
+      interval: 2s
+      timeout: 5s
+      retries: 30
   redis:
-    image: redis
+    image: redis:7@sha256:44960b3100c48159a66d28c18b0588c193492e25f7551d60e51dd464fc3eca5b
     ports:
-      - "6379:6379"
+      - "127.0.0.1:6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 2s
+      timeout: 5s
+      retries: 30
