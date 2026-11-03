@@ -12,6 +12,7 @@ class ShareSerializer(serializers.ModelSerializer):
             "isin",
             "name",
             "ticker",
+            "uid",
             "currency",
             "last_price",
             "is_trend_high",

@@ -1,28 +1,22 @@
+from django.db import DatabaseError
+
 from config.celery import app
-from dashboard.models import Share
-from dashboard.services.market_data import get_last_data
 from config.settings import logger
+from dashboard.models import Share
+from dashboard.services.market_data import MarketDataError, get_last_data
 
 
 @app.task
 def update_last_price():
-    shares = Share.objects.all()
-
-    for share in shares:
+    for share in Share.objects.all():
         try:
-            [last_price, detetime] = get_last_data(share)
+            last_price, price_time = get_last_data(share)
+            is_trend_high = share.last_price is None or share.last_price <= last_price
 
-            try:
-                if share.last_price > last_price:
-                    is_trend_high = False
-                else:
-                    is_trend_high = True
-            except Exception as e:
-                logger.error(e)
-                is_trend_high = True
-
-            Share.objects.filter(id=share.id).update(
-                last_price=last_price, is_trend_high=is_trend_high
+            Share.objects.filter(pk=share.pk).update(
+                last_price=last_price,
+                is_trend_high=is_trend_high,
+                updated_at=price_time,
             )
-        except Exception as e:
-            logger.error(e)
+        except (MarketDataError, DatabaseError, IndexError):
+            logger.exception("Could not update market data for share %s", share.pk)
