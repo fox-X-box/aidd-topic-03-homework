@@ -1,5 +1,20 @@
 from config.settings import TINKOFF_TOKEN, logger
 
+NANO = 1_000_000_000
+
+
+def _quotation_to_float(quotation):
+    """Переводит Quotation Tinkoff Invest (units + nano) в float.
+
+    Формат Tinkoff: отрицательные котировки хранятся как units < 0 и
+    nano того же знака, поэтому при units < 0 дробная часть вычитается.
+    """
+    units = quotation.units
+    nano = quotation.nano
+    if units >= 0:
+        return units + nano / NANO
+    return units - nano / NANO
+
 
 def _get_client():
     """Возвращает клиент Tinkoff Invest или None, если SDK/токен недоступны.
@@ -30,4 +45,4 @@ def get_last_data(share):
         resp = c.market_data.get_last_prices(figi=[share.figi])
         resp = resp.last_prices.pop()
         logger.info(f"Get last data for share with id {share.id}")
-        return [resp.price.units, resp.time]
+        return [_quotation_to_float(resp.price), resp.time]

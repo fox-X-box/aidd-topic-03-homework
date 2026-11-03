@@ -185,3 +185,4 @@ class DashboardTests(APITestCase):
         self.apple_share.refresh_from_db()
         # SDK не установлен -> цена не меняется.
         self.assertEqual(self.apple_share.last_price, 100.50)
+
