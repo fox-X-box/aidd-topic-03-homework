@@ -11,7 +11,11 @@ from rest_framework.test import APITestCase
 
 from dashboard.models import Share
 from dashboard.services.graph import get_graph
-from dashboard.services.market_data import get_last_data, money_value_to_float
+from dashboard.services.market_data import (
+    MarketDataError,
+    get_last_data,
+    money_value_to_float,
+)
 from dashboard.tasks import update_last_price
 
 
@@ -216,10 +220,25 @@ class DashboardTests(APITestCase):
 
     def test_market_data_reports_missing_optional_sdk(self):
         with patch.dict(sys.modules, {"tinkoff": None}):
-            with self.assertRaisesRegex(RuntimeError, "optional tinkoff-investments"):
+            with self.assertRaisesRegex(
+                MarketDataError, "optional tinkoff-investments"
+            ):
                 from dashboard.services.market_data import get_last_data
 
                 get_last_data(self.apple_share)
+
+    def test_update_task_preserves_prices_when_sdk_is_missing(self):
+        previous_price = self.apple_share.last_price
+        previous_trend = self.apple_share.is_trend_high
+        previous_updated_at = self.apple_share.updated_at
+
+        with patch.dict(sys.modules, {"tinkoff": None}):
+            update_last_price.run()
+
+        self.apple_share.refresh_from_db()
+        self.assertEqual(self.apple_share.last_price, previous_price)
+        self.assertEqual(self.apple_share.is_trend_high, previous_trend)
+        self.assertEqual(self.apple_share.updated_at, previous_updated_at)
 
     def test_get_last_data_parses_mocked_tinkoff_response(self):
         market_time = timezone.now()

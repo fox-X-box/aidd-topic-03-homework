@@ -14,7 +14,7 @@ def get_last_data(share):
         from tinkoff.invest import Client
     except ModuleNotFoundError as exc:
         if exc.name and exc.name.startswith("tinkoff"):
-            raise RuntimeError(
+            raise MarketDataError(
                 "Install the optional tinkoff-investments SDK to fetch market data"
             ) from exc
         raise
@@ -23,7 +23,7 @@ def get_last_data(share):
         from grpc import RpcError
     except ModuleNotFoundError as exc:
         if exc.name == "grpc":
-            raise RuntimeError(
+            raise MarketDataError(
                 "Install the optional tinkoff-investments SDK dependencies"
             ) from exc
         raise
