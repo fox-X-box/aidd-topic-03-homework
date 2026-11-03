@@ -6,14 +6,13 @@ NANO = 1_000_000_000
 def _quotation_to_float(quotation):
     """Переводит Quotation Tinkoff Invest (units + nano) в float.
 
-    Формат Tinkoff: отрицательные котировки хранятся как units < 0 и
-    nano того же знака, поэтому при units < 0 дробная часть вычитается.
+    Формат Tinkoff: котировка = units + nano / 1_000_000_000.
+    Пример: units=100, nano=750_000_000 -> 100.75.
+    Отрицательные котировки: units=-1, nano=-500_000_000 -> -1.5.
     """
     units = quotation.units
     nano = quotation.nano
-    if units >= 0:
-        return units + nano / NANO
-    return units - nano / NANO
+    return units + nano / NANO
 
 
 def _get_client():

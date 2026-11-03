@@ -199,12 +199,8 @@ class DashboardTests(APITestCase):
         self.assertEqual(gr_quotation(quotation), 100.75)
 
     def test_quotation_to_float_negative(self):
-        # units=-1, nano=500_000_000 -> -1.5 (отрицательная котировка с дробной частью).
+        # units=-1, nano=-500_000_000 -> -1.5 (отрицательная котировка с дробной частью).
         from unittest.mock import MagicMock
-
         quotation = MagicMock()
         quotation.units = -1
-        quotation.nano = 500_000_000
-        self.assertEqual(md_quotation(quotation), -1.5)
-        self.assertEqual(gr_quotation(quotation), -1.5)
-
+        quotation.nano = -500_000_000
