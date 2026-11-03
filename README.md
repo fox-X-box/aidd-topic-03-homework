@@ -46,13 +46,17 @@ USE_SQLITE=true python manage.py test dashboard.tests
 ## PostgreSQL (Docker, продакшен)
 
 ```bash
+# Установить драйвер PostgreSQL отдельно (не в requirements.txt):
+pip install psycopg2-binary
+
 docker-compose -f docker-compose.yml up   # PostgreSQL + Redis
+python manage.py migrate
 python manage.py add_shares               # первоначальная загрузка списка акций
 celery -A config beat                     # Celery Beat
 celery -A config worker -l info           # Celery Worker
 ```
 
-TINKOFF_TOKEN указывается в `config/settings.py`.
+TINKOFF_TOKEN задаётся через окружение (читается в config/settings.py): `export TINKOFF_TOKEN="..."`
 
 ## API
 
