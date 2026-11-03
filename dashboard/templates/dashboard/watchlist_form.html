@@ -1,0 +1,15 @@
+{% extends "dashboard/base.html" %}
+
+{% block title %}
+    <title>Изменить целевую цену</title>
+{% endblock %}
+
+{% block content %}
+    <h1>Изменить целевую цену для {{ object.share.name }}</h1>
+    <form method="post">
+        {% csrf_token %}
+        {{ form.as_p }}
+        <button class="btn btn-primary" type="submit">Сохранить</button>
+        <a class="btn btn-secondary" href="{% url 'dashboard:watchlist' %}">Отмена</a>
+    </form>
+{% endblock %}

@@ -1,4 +1,5 @@
 import sys
+from decimal import Decimal
 from types import ModuleType, SimpleNamespace
 from unittest.mock import MagicMock, patch
 
@@ -9,7 +10,7 @@ from django.utils import timezone
 from rest_framework import status
 from rest_framework.test import APITestCase
 
-from dashboard.models import Share
+from dashboard.models import PriceAlert, Share, WatchlistItem
 from dashboard.services.graph import get_graph
 from dashboard.services.market_data import (
     MarketDataError,
@@ -331,3 +332,157 @@ class DashboardTests(APITestCase):
         self.assertEqual(Share.objects.count(), 1)
         self.apple_share.refresh_from_db()
         self.assertEqual(self.apple_share.name, "Apple")
+
+    def create_watchlist_item(self, user, target="100.00", **kwargs):
+        return WatchlistItem.objects.create(
+            user=user,
+            share=self.apple_share,
+            target_price=target,
+            **kwargs,
+        )
+
+    def create_authenticated_user(self, username):
+        user = get_user_model().objects.create_user(
+            username=username, email=f"{username}@example.com", password="password"
+        )
+        self.client.force_login(user)
+        return user
+
+    def test_watchlist_web_create_update_and_delete(self):
+        user = self.create_authenticated_user("watcher")
+        response = self.client.post(
+            reverse("dashboard:watchlist_add"),
+            {"share": self.apple_share.pk, "target_price": "100.00"},
+        )
+        self.assertRedirects(response, reverse("dashboard:watchlist"))
+
+        item = WatchlistItem.objects.get(user=user, share=self.apple_share)
+        response = self.client.get(reverse("dashboard:watchlist"))
+        self.assertContains(response, "Список наблюдения")
+        self.assertContains(response, "Apple")
+
+        response = self.client.post(
+            reverse("dashboard:watchlist_update", args=[item.pk]),
+            {"target_price": "110.50"},
+        )
+        self.assertRedirects(response, reverse("dashboard:watchlist"))
+        item.refresh_from_db()
+        self.assertEqual(item.target_price, Decimal("110.500000"))
+
+        response = self.client.post(
+            reverse("dashboard:watchlist_delete", args=[item.pk])
+        )
+        self.assertRedirects(response, reverse("dashboard:watchlist"))
+        self.assertFalse(WatchlistItem.objects.filter(pk=item.pk).exists())
+
+    def test_watchlist_rejects_non_positive_target(self):
+        self.create_authenticated_user("watcher")
+        response = self.client.post(
+            reverse("dashboard:watchlist_add"),
+            {"share": self.apple_share.pk, "target_price": "0"},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertFalse(WatchlistItem.objects.exists())
+
+    def test_watchlist_and_notifications_are_private(self):
+        owner = get_user_model().objects.create_user(
+            username="owner", password="password"
+        )
+        other_user = self.create_authenticated_user("other")
+        item = self.create_watchlist_item(owner)
+        alert = PriceAlert.objects.create(
+            user=owner,
+            share=self.apple_share,
+            share_name="OWNER-ONLY-ALERT",
+            ticker="ONLY",
+            target_price=Decimal("987.123"),
+            triggered_price=Decimal("988.123"),
+        )
+
+        response = self.client.get(reverse("dashboard:watchlist"))
+        self.assertNotContains(response, "OWNER-ONLY-ALERT")
+        self.assertNotContains(response, "988.123")
+
+        for route, method, data in (
+            ("dashboard:watchlist_update", self.client.get, None),
+            ("dashboard:watchlist_update", self.client.post, {"target_price": "1"}),
+            ("dashboard:watchlist_delete", self.client.get, None),
+            ("dashboard:watchlist_delete", self.client.post, {}),
+        ):
+            with self.subTest(route=route, method=method.__name__):
+                response = (
+                    method(reverse(route, args=[item.pk]), data=data)
+                    if data is not None
+                    else method(reverse(route, args=[item.pk]))
+                )
+                self.assertEqual(response.status_code, 404)
+
+        item.refresh_from_db()
+        self.assertEqual(item.target_price, Decimal("100.000000"))
+        self.assertTrue(PriceAlert.objects.filter(pk=alert.pk, user=owner).exists())
+        self.assertNotEqual(other_user, owner)
+
+    def test_watchlist_requires_login(self):
+        response = self.client.get(reverse("dashboard:watchlist"))
+        self.assertRedirects(
+            response, f"{reverse('user:auth')}?next={reverse('dashboard:watchlist')}"
+        )
+
+    def test_target_alerts_once_per_crossing_sequence(self):
+        user = get_user_model().objects.create_user(
+            username="sequence", password="password"
+        )
+        item = self.create_watchlist_item(user, target="100")
+
+        for price in (99, 100, 101, 98, 100):
+            with self.subTest(price=price):
+                with patch(
+                    "dashboard.tasks.get_last_data",
+                    return_value=(price, timezone.now()),
+                ):
+                    update_last_price.run()
+
+        alerts = PriceAlert.objects.filter(user=user, share=self.apple_share)
+        self.assertEqual(alerts.count(), 2)
+        self.assertEqual(
+            list(
+                alerts.order_by("created_at").values_list("triggered_price", flat=True)
+            ),
+            [Decimal("100.000000"), Decimal("100.000000")],
+        )
+        item.refresh_from_db()
+        self.assertTrue(item.is_above_target)
+
+    def test_decimal_target_alerts_on_exact_threshold(self):
+        user = get_user_model().objects.create_user(
+            username="decimal", password="password"
+        )
+        self.create_watchlist_item(user, target="100.50")
+
+        for price in (100.49, 100.50):
+            with patch(
+                "dashboard.tasks.get_last_data",
+                return_value=(price, timezone.now()),
+            ):
+                update_last_price.run()
+
+        alert = PriceAlert.objects.get(user=user, share=self.apple_share)
+        self.assertEqual(alert.target_price, Decimal("100.500000"))
+        self.assertEqual(alert.triggered_price, Decimal("100.500000"))
+
+    def test_missing_quote_does_not_change_watchlist_state(self):
+        user = get_user_model().objects.create_user(
+            username="noquote", password="password"
+        )
+        item = self.create_watchlist_item(user, target="100", is_above_target=True)
+        previous_price = self.apple_share.last_price
+
+        with patch("dashboard.tasks.get_last_data", side_effect=IndexError):
+            update_last_price.run()
+
+        item.refresh_from_db()
+        self.apple_share.refresh_from_db()
+        self.assertTrue(item.is_above_target)
+        self.assertEqual(self.apple_share.last_price, previous_price)
+        self.assertFalse(PriceAlert.objects.filter(user=user).exists())

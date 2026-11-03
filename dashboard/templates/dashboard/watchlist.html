@@ -1,0 +1,69 @@
+{% extends "dashboard/base.html" %}
+
+{% block title %}
+    <title>Мои наблюдения</title>
+{% endblock %}
+
+{% block content %}
+    <h1>Мои наблюдения</h1>
+    <h2>Добавить акцию</h2>
+    <form method="post" action="{% url 'dashboard:watchlist_add' %}" class="mb-4">
+        {% csrf_token %}
+        {{ create_form.non_field_errors }}
+        <div class="mb-3">
+            {{ create_form.share.label_tag }}
+            {{ create_form.share }}
+            {{ create_form.share.errors }}
+        </div>
+        <div class="mb-3">
+            {{ create_form.target_price.label_tag }}
+            {{ create_form.target_price }}
+            {{ create_form.target_price.errors }}
+        </div>
+        <button class="btn btn-primary" type="submit">Добавить наблюдение</button>
+    </form>
+
+    <h2>Список наблюдения</h2>
+    {% if watchlist %}
+        <table class="table table-striped">
+            <thead>
+                <tr>
+                    <th>Акция</th>
+                    <th>Текущая цена</th>
+                    <th>Целевая цена</th>
+                    <th>Действия</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in watchlist %}
+                    <tr>
+                        <td>{{ item.share.name }} ({{ item.share.ticker }})</td>
+                        <td>{{ item.share.last_price|default:"—" }} {{ item.share.currency }}</td>
+                        <td>{{ item.target_price }} {{ item.share.currency }}</td>
+                        <td>
+                            <a class="btn btn-secondary btn-sm" href="{% url 'dashboard:watchlist_update' item.pk %}">Изменить цель</a>
+                            <a class="btn btn-danger btn-sm" href="{% url 'dashboard:watchlist_delete' item.pk %}">Удалить</a>
+                        </td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    {% else %}
+        <p>В списке пока нет акций.</p>
+    {% endif %}
+
+    <h2>Уведомления</h2>
+    {% if alerts %}
+        <ul class="list-group mb-4">
+            {% for alert in alerts %}
+                <li class="list-group-item">
+                    {{ alert.created_at|date:"d.m.Y H:i" }} —
+                    {{ alert.share_name }} ({{ alert.ticker }}):
+                    цена {{ alert.triggered_price }} достигла цели {{ alert.target_price }}.
+                </li>
+            {% endfor %}
+        </ul>
+    {% else %}
+        <p>Уведомлений пока нет.</p>
+    {% endif %}
+{% endblock %}

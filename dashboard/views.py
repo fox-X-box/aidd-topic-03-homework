@@ -1,10 +1,17 @@
-from django.contrib.auth.mixins import UserPassesTestMixin
+from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse_lazy
-from django.views.generic import CreateView, DeleteView, ListView, UpdateView, View
+from django.views.generic import (
+    CreateView,
+    DeleteView,
+    ListView,
+    TemplateView,
+    UpdateView,
+    View,
+)
 
-from .forms import ShareModelForm
-from .models import Share
+from .forms import ShareModelForm, WatchlistCreateForm, WatchlistUpdateForm
+from .models import PriceAlert, Share, WatchlistItem
 from .services.graph import get_graph
 
 
@@ -44,6 +51,57 @@ class ShareCreateView(IsUserAuthenticatedMixin, CreateView):
     template_name = "dashboard/create.html"
     form_class = ShareModelForm
     success_url = reverse_lazy("dashboard:index")
+
+
+class WatchlistView(LoginRequiredMixin, TemplateView):
+    template_name = "dashboard/watchlist.html"
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["watchlist"] = WatchlistItem.objects.filter(
+            user=self.request.user
+        ).select_related("share")
+        context["alerts"] = PriceAlert.objects.filter(user=self.request.user)
+        context["create_form"] = WatchlistCreateForm(user=self.request.user)
+        return context
+
+
+class WatchlistCreateView(LoginRequiredMixin, CreateView):
+    form_class = WatchlistCreateForm
+    template_name = "dashboard/watchlist_form.html"
+    success_url = reverse_lazy("dashboard:watchlist")
+
+    def get_form_kwargs(self):
+        kwargs = super().get_form_kwargs()
+        kwargs["user"] = self.request.user
+        return kwargs
+
+    def form_valid(self, form):
+        form.instance.user = self.request.user
+        return super().form_valid(form)
+
+
+class WatchlistUpdateView(LoginRequiredMixin, UpdateView):
+    model = WatchlistItem
+    form_class = WatchlistUpdateForm
+    template_name = "dashboard/watchlist_form.html"
+    success_url = reverse_lazy("dashboard:watchlist")
+
+    def get_queryset(self):
+        return WatchlistItem.objects.filter(user=self.request.user)
+
+    def form_valid(self, form):
+        form.instance.is_above_target = False
+        return super().form_valid(form)
+
+
+class WatchlistDeleteView(LoginRequiredMixin, DeleteView):
+    model = WatchlistItem
+    template_name = "dashboard/watchlist_confirm_delete.html"
+    success_url = reverse_lazy("dashboard:watchlist")
+
+    def get_queryset(self):
+        return WatchlistItem.objects.filter(user=self.request.user)
 
 
 class ShareUpdateView(IsUserAuthenticatedMixin, UpdateView):
