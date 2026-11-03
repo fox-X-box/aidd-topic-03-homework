@@ -3,6 +3,21 @@ from plotly.graph_objs import Scatter
 from plotly.offline import plot
 from config.settings import TINKOFF_TOKEN, logger
 
+NANO = 1_000_000_000
+
+
+def _quotation_to_float(quotation):
+    """Переводит Quotation Tinkoff Invest (units + nano) в float.
+
+    Формат Tinkoff: отрицательные котировки хранятся как units < 0 и
+    nano того же знака, поэтому при units < 0 дробная часть вычитается.
+    """
+    units = quotation.units
+    nano = quotation.nano
+    if units >= 0:
+        return units + nano / NANO
+    return units - nano / NANO
+
 
 def _get_candle_client():
     """Возвращает (Client, CandleInterval, now) или None, если SDK/токен недоступны."""
@@ -34,7 +49,7 @@ def get_graph(share):
             interval=CandleInterval.CANDLE_INTERVAL_DAY,
         ):
             x_data.append(candle.time.date())
-            y_data.append(candle.close.units)
+            y_data.append(_quotation_to_float(candle.close))
     plot_div = plot(
         [
             Scatter(

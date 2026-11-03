@@ -1,9 +1,11 @@
 from django.urls import reverse
 from rest_framework import status
 from rest_framework.test import APITestCase
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 from dashboard.models import Share
+from dashboard.services.market_data import _quotation_to_float as md_quotation
+from dashboard.services.graph import _quotation_to_float as gr_quotation
 
 
 class DashboardTests(APITestCase):
@@ -185,4 +187,24 @@ class DashboardTests(APITestCase):
         self.apple_share.refresh_from_db()
         # SDK не установлен -> цена не меняется.
         self.assertEqual(self.apple_share.last_price, 100.50)
+
+    def test_quotation_to_float_positive(self):
+        # units=100, nano=750_000_000 -> 100.75 (дробная часть сохраняется).
+        from unittest.mock import MagicMock
+
+        quotation = MagicMock()
+        quotation.units = 100
+        quotation.nano = 750_000_000
+        self.assertEqual(md_quotation(quotation), 100.75)
+        self.assertEqual(gr_quotation(quotation), 100.75)
+
+    def test_quotation_to_float_negative(self):
+        # units=-1, nano=500_000_000 -> -1.5 (отрицательная котировка с дробной частью).
+        from unittest.mock import MagicMock
+
+        quotation = MagicMock()
+        quotation.units = -1
+        quotation.nano = 500_000_000
+        self.assertEqual(md_quotation(quotation), -1.5)
+        self.assertEqual(gr_quotation(quotation), -1.5)
 
