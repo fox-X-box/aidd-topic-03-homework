@@ -1,0 +1,7 @@
+{% extends "dashboard/base.html" %}
+{% block content %}
+<h1>Удалить наблюдение за {{ object.stock }}?</h1>
+<p>Уведомления по этому наблюдению также будут удалены.</p>
+<form method="post">{% csrf_token %}<button type="submit">Удалить</button></form>
+<a href="{% url 'dashboard:observations' %}">Отмена</a>
+{% endblock %}

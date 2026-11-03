@@ -1,0 +1,9 @@
+{% extends "dashboard/base.html" %}
+{% block content %}
+<h1>{% if object %}Изменить цель для {{ object.stock }}{% else %}Добавить наблюдение{% endif %}</h1>
+<form method="post">{% csrf_token %}
+  {{ form.as_p }}
+  <button type="submit">Сохранить</button>
+</form>
+<a href="{% url 'dashboard:observations' %}">К наблюдениям</a>
+{% endblock %}

@@ -1,0 +1,21 @@
+{% extends "dashboard/base.html" %}
+{% block title %}<title>Мои наблюдения</title>{% endblock %}
+{% block content %}
+<h1>Мои наблюдения</h1>
+<a href="{% url 'dashboard:observation_create' %}">Добавить акцию</a>
+<ul>
+{% for item in observations %}
+  <li>{{ item.stock }} · цель {{ item.target_price }} {{ item.stock.currency }}
+    <a href="{% url 'dashboard:observation_update' item.pk %}">Изменить цель</a>
+    <a href="{% url 'dashboard:observation_delete' item.pk %}">Удалить</a>
+  </li>
+{% empty %}<li>Список наблюдений пуст.</li>{% endfor %}
+</ul>
+<h2>Уведомления</h2>
+<ul>
+{% for event in notifications %}
+  <li>{{ event.event_time }} · {{ event.observation.stock.ticker }} · цель {{ event.target_price }},
+      цена {{ event.actual_price }} {{ event.observation.stock.currency }}</li>
+{% empty %}<li>Уведомлений пока нет.</li>{% endfor %}
+</ul>
+{% endblock %}
