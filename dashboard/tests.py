@@ -1,6 +1,7 @@
 from django.urls import reverse
 from rest_framework import status
 from rest_framework.test import APITestCase
+from unittest.mock import patch
 
 from dashboard.models import Share
 
@@ -120,3 +121,67 @@ class DashboardTests(APITestCase):
     def test_share_delete_invalid(self):
         response = self.client.delete("/api/v1/shares/3/")
         self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+
+    def test_share_detail_html_not_found(self):
+        # Дефект: Share.objects.get падал с 500; теперь get_object_or_404 -> 404.
+        response = self.client.get(reverse("dashboard:detail", args=[999999]))
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+
+    def test_share_detail_html_ok(self):
+        # Детальная страница открывается и содержит отрисованный график
+        # (get_graph замурован — подставной ответ только в тесте).
+        with patch("dashboard.views.get_graph", return_value="<div>plot</div>"):
+            response = self.client.get(
+                reverse("dashboard:detail", args=[self.apple_share.id])
+            )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertContains(response, self.apple_share.name)
+        self.assertContains(response, "<div>plot</div>")
+
+    def test_share_detail_html_graph_unavailable(self):
+        # Без SDK/токена get_graph возвращает None; на странице — сообщение о недоступности.
+        with patch("dashboard.views.get_graph", return_value=None):
+            response = self.client.get(
+                reverse("dashboard:detail", args=[self.apple_share.id])
+            )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertContains(response, "Исторические данные недоступны")
+
+    def test_get_last_data_returns_none_without_sdk(self):
+        # SDK не установлен: get_last_data возвращает None, не выбрасывая исключения.
+        from dashboard.services.market_data import get_last_data
+
+        self.assertIsNone(get_last_data(self.apple_share))
+
+    def test_get_graph_returns_none_without_sdk(self):
+        # SDK не установлен: get_graph возвращает None.
+        from dashboard.services.graph import get_graph
+
+        self.assertIsNone(get_graph(self.apple_share))
+
+    def test_update_last_price_preserves_old_price_on_error(self):
+        # При ошибке получения цены старая цена в БД сохраняется.
+        from dashboard.tasks import update_last_price
+
+        with patch(
+            "dashboard.services.market_data.get_last_data",
+            side_effect=RuntimeError("ошибка котировок"),
+        ):
+            update_last_price()
+
+        self.apple_share.refresh_from_db()
+        self.assertEqual(self.apple_share.last_price, 100.50)
+
+    def test_update_last_price_task_runs(self):
+        # Фоновая задача выполняется синхронно (CELERY_TASK_ALWAYS_EAGER) и не падает
+        # при пустом токене Tinkoff (SDK не установлен).
+        from dashboard.tasks import update_last_price
+
+        try:
+            update_last_price()
+        except Exception as exc:  # noqa: BLE001
+            self.fail(f"update_last_price raised {exc!r}")
+
+        self.apple_share.refresh_from_db()
+        # SDK не установлен -> цена не меняется.
+        self.assertEqual(self.apple_share.last_price, 100.50)

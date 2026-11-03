@@ -20,9 +20,13 @@
     <div class="col3"></div>
     <div class="col3">
     <h5>Исторические данные: </h5>
- {% autoescape off %}
+    {% if graph_available and plot_div %}
+  {% autoescape off %}
   {{ plot_div }}
   {% endautoescape %}
+    {% else %}
+    <p>Исторические данные недоступны (не настроен Tinkoff Invest API или токен).</p>
+    {% endif %}
     </div>
     <div class="col3"></div>
     </div>

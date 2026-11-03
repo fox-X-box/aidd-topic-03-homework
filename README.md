@@ -1,23 +1,59 @@
 # investing
 
-# PostgreSQL (Docker)
-docker-compose -f docker-compose.yml up
+## Локальный запуск без Docker/PostgreSQL/Redis (рекомендуется для разработки)
 
-# Tinkoff Invest API
-# TINKOFF_TOKEN указывается в config/settings.py
+```bash
+# 1. Создать и активировать виртуальное окружение (Python 3.10+)
+python3 -m venv .venv
+source .venv/bin/activate
 
-# Первоначальная загрузка списка акций
-python manage.py add_shares
+# 2. Установить зависимости
+pip install -r requirements.txt
 
-# Celery Beat
-celery -A config beat
+# 3. Проверить конфигурацию Django
+USE_SQLITE=true python manage.py check
 
-# Celery Worker
-celery -A config worker -l info
+# 4. Применить миграции (SQLite)
+USE_SQLITE=true python manage.py migrate
 
-# Celery Worker для Windows (Eventlet)
-pip install eventlet cryptography
-celery -A config worker -l info -P eventlet
+# 5. Запустить сервер
+USE_SQLITE=true python manage.py runserver 127.0.0.1:8000
+```
 
-# API
-# /api/v1/shares — работа с акциями
+Приложение доступно по адресу http://127.0.0.1:8000/
+
+## Запуск тестов
+
+```bash
+source .venv/bin/activate
+USE_SQLITE=true python manage.py test dashboard.tests
+```
+
+## Окружение
+
+- `USE_SQLITE=true` — использовать SQLite и выполнять задачи Celery синхронно (без Redis-брокера).
+- `DJANGO_SECRET_KEY` — секретный ключ Django (по умолчанию небезопасное значение для разработки).
+- `TINKOFF_TOKEN` — токен Tinkoff Invest API (по умолчанию пустой; рыночные данные недоступны).
+
+## Рыночные данные (Tinkoff Invest)
+
+Приложение запускается и работает без установленного SDK `tinkoff-investments` и без токена:
+- котировки и график недоступны, на страницах выводится сообщение об этом;
+- фоновая задача обновления цен пропускает акции и сохраняет старые цены в БД.
+
+При установке реального SDK и задании `TINKOFF_TOKEN` функции `dashboard/services/market_data.py` и `dashboard/services/graph.py` начнут использовать настоящий API Tinkoff Invest.
+
+## PostgreSQL (Docker, продакшен)
+
+```bash
+docker-compose -f docker-compose.yml up   # PostgreSQL + Redis
+python manage.py add_shares               # первоначальная загрузка списка акций
+celery -A config beat                     # Celery Beat
+celery -A config worker -l info           # Celery Worker
+```
+
+TINKOFF_TOKEN указывается в `config/settings.py`.
+
+## API
+
+- `/api/v1/shares/` — работа с акциями (CRUD, фильтрация, поиск, сортировка, пагинация).

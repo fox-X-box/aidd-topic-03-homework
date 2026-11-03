@@ -1,14 +1,31 @@
 from datetime import timedelta
-
 from plotly.graph_objs import Scatter
 from plotly.offline import plot
-from tinkoff.invest import CandleInterval, Client
-from tinkoff.invest.utils import now
+from config.settings import TINKOFF_TOKEN, logger
 
-from config.settings import TINKOFF_TOKEN
+
+def _get_candle_client():
+    """Возвращает (Client, CandleInterval, now) или None, если SDK/токен недоступны."""
+    try:
+        from tinkoff.invest import CandleInterval, Client
+        from tinkoff.invest.utils import now
+    except ImportError:
+        logger.warning(
+            "Пакет tinkoff-investments не установлен; график недоступен"
+        )
+        return None
+    if not TINKOFF_TOKEN:
+        logger.warning("TINKOFF_TOKEN не задан; график недоступен")
+        return None
+    return Client, CandleInterval, now
 
 
 def get_graph(share):
+    """Возвращает HTML-див с графиком или None, если рыночные данные недоступны."""
+    candle_client = _get_candle_client()
+    if candle_client is None:
+        return None
+    Client, CandleInterval, now = candle_client
     with Client(TINKOFF_TOKEN) as client:
         x_data, y_data = [], []
         for candle in client.get_all_candles(

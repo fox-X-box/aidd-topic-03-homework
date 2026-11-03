@@ -1,13 +1,18 @@
 import logging
+import os
 from pathlib import Path
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-SECRET_KEY = ""
+SECRET_KEY = os.environ.get("DJANGO_SECRET_KEY", "dev-insecure-secret-key-change-me")
 
 DEBUG = True
 
 ALLOWED_HOSTS = []
+
+# Локальная разработка без Docker/PostgreSQL/Redis:
+# USE_SQLITE=true  -> SQLite + задачи Celery выполняются синхронно (без брокера)
+USE_SQLITE = os.environ.get("USE_SQLITE", "false").lower() == "true"
 
 
 INSTALLED_APPS = [
@@ -88,20 +93,24 @@ TEMPLATES = [
 
 WSGI_APPLICATION = "config.wsgi.application"
 
-DATABASES = {
-    # 'default': {
-    #     'ENGINE': 'django.db.backends.sqlite3',
-    #     'NAME': BASE_DIR / 'db.sqlite3',
-    # }
-    "default": {
-        "ENGINE": "django.db.backends.postgresql",
-        "NAME": "investing",
-        "USER": "postgres",
-        "PASSWORD": "postgres",
-        "HOST": "localhost",
-        "PORT": "5432",
+if USE_SQLITE:
+    DATABASES = {
+        "default": {
+            "ENGINE": "django.db.backends.sqlite3",
+            "NAME": BASE_DIR / "db.sqlite3",
+        }
     }
-}
+else:
+    DATABASES = {
+        "default": {
+            "ENGINE": "django.db.backends.postgresql",
+            "NAME": "investing",
+            "USER": "postgres",
+            "PASSWORD": "postgres",
+            "HOST": "localhost",
+            "PORT": "5432",
+        }
+    }
 
 AUTH_PASSWORD_VALIDATORS = [
     {
@@ -141,4 +150,5 @@ CELERY_TASK_TIME_LIMIT = 30 * 60
 CELERY_BROKER_URL = "redis://127.0.0.1:6379/0"
 
 """Debug Celery"""
-CELERY_TASK_ALWAYS_EAGER = False
+# Без Redis-брокера задачи выполняются синхронно (в рамках запроса).
+CELERY_TASK_ALWAYS_EAGER = USE_SQLITE

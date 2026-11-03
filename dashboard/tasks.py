@@ -10,10 +10,17 @@ def update_last_price():
 
     for share in shares:
         try:
-            [last_price, detetime] = get_last_data(share)
+            data = get_last_data(share)
+            if data is None:
+                logger.warning(
+                    f"Пропуск обновления цены для акции {share.id}: "
+                    "рыночные данные недоступны"
+                )
+                continue
+            [last_price, detetime] = data
 
             try:
-                if share.last_price > last_price:
+                if share.last_price is not None and share.last_price > last_price:
                     is_trend_high = False
                 else:
                     is_trend_high = True
@@ -25,4 +32,5 @@ def update_last_price():
                 last_price=last_price, is_trend_high=is_trend_high
             )
         except Exception as e:
+            # При любой ошибке получения/обновления цена в БД не меняется.
             logger.error(e)
